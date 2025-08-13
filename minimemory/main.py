@@ -1,14 +1,14 @@
+# minimemory/main.py
 from fastapi import FastAPI
 from .database import Base, engine
 from .routers import auth, memories, keys
 
-# create tables
-Base.metadata.create_all(bind=engine)
-
+# Tags for the OpenAPI docs
 tags_metadata = [
-  {"name":"auth","description":"Register & login"},
-  {"name":"memories","description":"CRUD, search, import/export"},
-  {"name":"api-keys","description":"Create & manage API keys"},
+    {"name": "auth", "description": "Register & login"},
+    {"name": "memories", "description": "CRUD, search, import/export"},
+    {"name": "api-keys", "description": "Create & manage API keys"},
+    {"name": "internal", "description": "Internal/health endpoints"},
 ]
 
 app = FastAPI(
@@ -18,10 +18,26 @@ app = FastAPI(
     openapi_tags=tags_metadata,
 )
 
-app.include_router(auth.router)
-app.include_router(memories.router)
-app.include_router(keys.router)
+# --- Health & root -----------------------------------------------------------
+@app.get("/health", tags=["internal"])
+def health():
+    return {"ok": True}
 
-@app.get("/", tags=["health"])
+@app.get("/", tags=["internal"])
 def root():
-    return {"message": "🚀 MiniMemory API is running!"}
+    return {
+        "message": "🚀 MiniMemory API is running!",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+# --- Routers -----------------------------------------------------------------
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(memories.router, prefix="/memories", tags=["memories"])
+app.include_router(keys.router, prefix="/keys", tags=["api-keys"])
+
+# --- DB init at startup ------------------------------------------------------
+@app.on_event("startup")
+def init_db():
+    # Create tables if they don't exist
+    Base.metadata.create_all(bind=engine)
