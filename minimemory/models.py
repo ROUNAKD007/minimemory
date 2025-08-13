@@ -1,23 +1,17 @@
 from __future__ import annotations
 
-import hashlib
-import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+import hashlib
+import uuid
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import (
-    String,
-    Text,
-    Boolean,
-    DateTime,
-    ForeignKey,
-    UniqueConstraint,
-    Index,
-    Integer,
-    func,
+    String, Text, Boolean, DateTime, ForeignKey,
+    UniqueConstraint, Index, Integer
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import func
 
 
 class Base(DeclarativeBase):
@@ -27,8 +21,6 @@ class Base(DeclarativeBase):
 def hash_key(plaintext: str) -> str:
     return hashlib.sha256(plaintext.encode("utf-8")).hexdigest()
 
-
-# ---- USERS ---------------------------------------------------------------
 
 class UserORM(Base):
     __tablename__ = "users"
@@ -40,8 +32,6 @@ class UserORM(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-
-# ---- API KEYS ------------------------------------------------------------
 
 class ApiKeyORM(Base):
     __tablename__ = "api_keys"
@@ -58,8 +48,6 @@ class ApiKeyORM(Base):
     )
 
 
-# ---- MEMORIES ------------------------------------------------------------
-
 class MemoryORM(Base):
     __tablename__ = "memories"
 
@@ -69,9 +57,7 @@ class MemoryORM(Base):
     )
 
     # optional namespacing (per app/user/agent)
-    space: Mapped[str] = mapped_column(
-        String(120), nullable=False, server_default="default", index=True
-    )
+    space: Mapped[str] = mapped_column(String(120), nullable=False, server_default="default", index=True)
 
     # KV convenience key (unique per owner+space)
     key: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
@@ -81,7 +67,7 @@ class MemoryORM(Base):
 
     tags: Mapped[List[str]] = mapped_column(JSONB, nullable=False, default=list)
 
-    # Use Python attr 'meta' mapped to DB column "metadata" (avoid reserved-name 'metadata')
+    # NOTE: 'metadata' is reserved by SQLAlchemy. Use 'meta' attribute, map to DB column 'metadata'.
     meta: Mapped[Dict[str, Any]] = mapped_column("metadata", JSONB, nullable=False, default=dict)
 
     is_long_term: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
@@ -97,24 +83,19 @@ class MemoryORM(Base):
     __table_args__ = (
         UniqueConstraint("owner_id", "space", "key", name="ux_mem_owner_space_key"),
         Index("ix_mem_owner_space_created", "owner_id", "space", "created_at"),
-        # Do not map the generated tsvector column here.
     )
 
-
-# ---- IMPORT JOBS ---------------------------------------------------------
 
 class ImportJobORM(Base):
     __tablename__ = "import_jobs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     owner_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="queued")
-    imported_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    status: Mapped[str] = mapped_column(String(20), default="queued", nullable=False)
+    imported_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     error_text: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
