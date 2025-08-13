@@ -1,0 +1,5 @@
+id,title,content,tags,is_long_term,created_at
+1,pref,black coffee,"[""profile"", ""prefs""]",True,2025-08-12T21:45:24.414499
+2,coffee pref,I drink black coffee,"[""profile"", ""prefs""]",True,2025-08-12T21:49:19.732842
+3,t1,c1,"[""a""]",True,2025-08-12T21:53:50.901702
+4,t2,coffee,"[""b""]",False,2025-08-12T21:53:50.901705

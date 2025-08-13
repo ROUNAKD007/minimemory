@@ -1,0 +1,31 @@
+{ "info": { "name": "MiniMemory API",
+  "_postman_id": "minimemory-collection",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+},
+"variable":[
+  {"key":"baseUrl","value":"http://127.0.0.1:8001"},
+  {"key":"token","value":""},
+  {"key":"apiKey","value":""}
+],
+"item":[
+  {"name":"Auth / Login","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/x-www-form-urlencoded"}],
+    "url":{"raw":"{{baseUrl}}/auth/login","host":["{{baseUrl}}"],"path":["auth","login"]},
+    "body":{"mode":"urlencoded","urlencoded":[{"key":"username","value":"you@example.com"},{"key":"password","value":"pass1234"}]}},
+    "event":[{"listen":"test","script":{"exec":["var j = pm.response.json();","pm.collectionVariables.set('token', j.access_token);","pm.test('got token', function(){ pm.expect(j.access_token).to.be.a('string'); });"]}}]
+  },
+  {"name":"Memories / Create","request":{"method":"POST","header":[{"key":"Authorization","value":"Bearer {{token}}"},{"key":"Content-Type","value":"application/json"}],
+    "url":{"raw":"{{baseUrl}}/memories","host":["{{baseUrl}}"],"path":["memories"]},
+    "body":{"mode":"raw","raw":"{\"title\":\"pref\",\"content\":\"black coffee\",\"tags\":[\"profile\",\"prefs\"]}"}}},
+  {"name":"Memories / List","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],
+    "url":{"raw":"{{baseUrl}}/memories","host":["{{baseUrl}}"],"path":["memories"]}}},
+  {"name":"Memories / Search","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],
+    "url":{"raw":"{{baseUrl}}/memories?q=coffee","host":["{{baseUrl}}"],"path":["memories"],"query":[{"key":"q","value":"coffee"}]}}},
+  {"name":"Memories / Export JSON","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],
+    "url":{"raw":"{{baseUrl}}/memories/export?format=json","host":["{{baseUrl}}"],"path":["memories","export"],"query":[{"key":"format","value":"json"}]}}},
+  {"name":"API Keys / Create","request":{"method":"POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],
+    "url":{"raw":"{{baseUrl}}/keys","host":["{{baseUrl}}"],"path":["keys"]}},
+    "event":[{"listen":"test","script":{"exec":["var j = pm.response.json();","pm.collectionVariables.set('apiKey', j.api_key);","pm.test('got api key', function(){ pm.expect(j.api_key).to.include('mmk_'); });"]}}]
+  },
+  {"name":"Memories / List via API Key","request":{"method":"GET","header":[{"key":"X-API-Key","value":"{{apiKey}}"}],
+    "url":{"raw":"{{baseUrl}}/memories","host":["{{baseUrl}}"],"path":["memories"]}}}
+]}
