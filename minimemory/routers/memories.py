@@ -3,13 +3,13 @@ from typing import List, Optional
 from datetime import datetime
 import io, csv, json, os, uuid
 from tempfile import NamedTemporaryFile
-from ..auth_utils import get_owner_id
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+from ..auth_utils import get_owner_id
 from ..database import get_db, SessionLocal
 from ..models import MemoryORM, ImportJobORM
 from ..schemas import MemoryCreate, MemoryUpdate, MemoryOut
@@ -43,7 +43,7 @@ def list_memories(
         qry = qry.filter(text("search_tsv @@ plainto_tsquery('english', :q)")).params(q=q)
     return qry.all()
 
-# ---------- export BEFORE /{memory_id} to avoid conflicts ----------
+# ---------- export BEFORE /{memory_id} ----------
 @router.get("/export")
 def export_memories(
     format: str = "json",
