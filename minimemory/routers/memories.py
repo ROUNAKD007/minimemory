@@ -1,4 +1,5 @@
-# minimemory/routers/memories.py
+# minimemory/routers/memories.py  (keep ONLY this router code)
+
 from typing import List, Optional
 from datetime import datetime
 import io, csv, json, os, uuid
@@ -17,7 +18,6 @@ from ..schemas import MemoryCreate, MemoryUpdate, MemoryOut
 router = APIRouter(prefix="/memories", tags=["memories"])
 BATCH_SIZE = 1000
 
-# ---------- helpers ----------
 def _get_owned(db: Session, owner_id: int, memory_id: int) -> MemoryORM:
     row = db.query(MemoryORM).filter(
         MemoryORM.id == memory_id,
@@ -27,8 +27,7 @@ def _get_owned(db: Session, owner_id: int, memory_id: int) -> MemoryORM:
         raise HTTPException(status_code=404, detail="Memory not found")
     return row
 
-# ---------- list/search ----------
-@router.get("", response_model=List[MemoryOut])
+@router.get("/", response_model=List[MemoryOut], summary="List Memories")
 def list_memories(
     tag: Optional[str] = None,
     q: Optional[str] = None,
@@ -37,14 +36,12 @@ def list_memories(
 ):
     qry = db.query(MemoryORM).filter(MemoryORM.owner_id == owner_id).order_by(MemoryORM.id.asc())
     if tag:
-        qry = qry.filter(MemoryORM.tags.contains([tag]))   # JSONB contains
+        qry = qry.filter(MemoryORM.tags.contains([tag]))
     if q:
-        # uses search_tsv index if you ran the FTS SQL
         qry = qry.filter(text("search_tsv @@ plainto_tsquery('english', :q)")).params(q=q)
     return qry.all()
 
-# ---------- export BEFORE /{memory_id} ----------
-@router.get("/export")
+@router.get("/export", summary="Export Memories")
 def export_memories(
     format: str = "json",
     tag: Optional[str] = None,
@@ -73,7 +70,6 @@ def export_memories(
             headers={"Content-Disposition": 'attachment; filename="memories.csv"'},
         )
 
-    # default JSON
     return [
         {
             "id": r.id,
@@ -86,7 +82,6 @@ def export_memories(
         } for r in rows
     ]
 
-# ---------- import (background task) ----------
 def _process_import_file(tmp_path: str, owner_id: int, job_id: uuid.UUID):
     db = SessionLocal()
     try:
@@ -173,7 +168,7 @@ def _process_import_file(tmp_path: str, owner_id: int, job_id: uuid.UUID):
         try: os.remove(tmp_path)
         except Exception: pass
 
-@router.post("/import", status_code=202)
+@router.post("/import", status_code=202, summary="Import Memories")
 async def import_memories(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -195,7 +190,7 @@ async def import_memories(
     background_tasks.add_task(_process_import_file, tmp_path, owner_id, job.id)
     return {"job_id": str(job.id), "status": "accepted"}
 
-@router.get("/import/{job_id}")
+@router.get("/import/{job_id}", summary="Import Status")
 def import_status(job_id: uuid.UUID, db: Session = Depends(get_db), owner_id: int = Depends(get_owner_id)):
     job = db.get(ImportJobORM, job_id)
     if not job or job.owner_id != owner_id:
@@ -209,8 +204,7 @@ def import_status(job_id: uuid.UUID, db: Session = Depends(get_db), owner_id: in
         "finished_at": job.finished_at,
     }
 
-# ---------- CRUD ----------
-@router.post("", response_model=MemoryOut, status_code=201)
+@router.post("/", response_model=MemoryOut, status_code=201, summary="Create Memory")
 def create_memory(payload: MemoryCreate, db: Session = Depends(get_db), owner_id: int = Depends(get_owner_id)):
     row = MemoryORM(
         owner_id=owner_id,
@@ -222,11 +216,11 @@ def create_memory(payload: MemoryCreate, db: Session = Depends(get_db), owner_id
     db.add(row); db.commit(); db.refresh(row)
     return row
 
-@router.get("/{memory_id}", response_model=MemoryOut)
+@router.get("/{memory_id}", response_model=MemoryOut, summary="Get Memory")
 def get_memory(memory_id: int, db: Session = Depends(get_db), owner_id: int = Depends(get_owner_id)):
     return _get_owned(db, owner_id, memory_id)
 
-@router.put("/{memory_id}", response_model=MemoryOut)
+@router.put("/{memory_id}", response_model=MemoryOut, summary="Update Memory")
 def update_memory(memory_id: int, payload: MemoryUpdate, db: Session = Depends(get_db), owner_id: int = Depends(get_owner_id)):
     row = _get_owned(db, owner_id, memory_id)
     if payload.title is not None: row.title = payload.title
@@ -237,7 +231,7 @@ def update_memory(memory_id: int, payload: MemoryUpdate, db: Session = Depends(g
     db.commit(); db.refresh(row)
     return row
 
-@router.delete("/{memory_id}", status_code=204)
+@router.delete("/{memory_id}", status_code=204, summary="Delete Memory")
 def delete_memory(memory_id: int, db: Session = Depends(get_db), owner_id: int = Depends(get_owner_id)):
     row = _get_owned(db, owner_id, memory_id)
     db.delete(row); db.commit()
