@@ -1,8 +1,9 @@
+# --- add/ensure these at top of file ---
 import os
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -34,6 +35,38 @@ def get_current_user_id(token: str = Depends(oauth2_scheme)) -> int:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         uid = payload.get("user_id")
         if uid is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return int(uid)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+# --- add this function (the missing one) ---
+async def get_owner_id(
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(default=None, alias="Authorization"),
+    x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+) -> int:
+    # Prefer API key if present
+    if x_api_key:
+        # If your model stores a hash:
+        if hasattr(ApiKeyORM, "key_hash"):
+            h = hash_key(x_api_key)
+            row = db.query(ApiKeyORM).filter(ApiKeyORM.key_hash == h, ApiKeyORM.active == True).first()
+        else:
+            # If your model stores plaintext (api_key/is_active)
+            row = db.query(ApiKeyORM).filter(ApiKeyORM.api_key == x_api_key, ApiKeyORM.is_active == True).first()
+        if not row:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        return row.owner_id
+
+    # Else Bearer token
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing credentials")
+    token = authorization.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        uid = payload.get("user_id")
+        if not uid:
             raise HTTPException(status_code=401, detail="Invalid token")
         return int(uid)
     except JWTError:

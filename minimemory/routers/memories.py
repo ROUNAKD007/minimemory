@@ -13,7 +13,6 @@ from sqlalchemy import text
 from ..database import get_db, SessionLocal
 from ..models import MemoryORM, ImportJobORM
 from ..schemas import MemoryCreate, MemoryUpdate, MemoryOut
-from ..auth_utils import get_current_user_id
 
 router = APIRouter(prefix="/memories", tags=["memories"])
 BATCH_SIZE = 1000
@@ -51,7 +50,7 @@ def export_memories(
     tag: Optional[str] = None,
     q: Optional[str] = None,
     db: Session = Depends(get_db),
-    owner_id: int = Depends(get_current_user_id),
+    owner_id: int = Depends(get_owner_id),
 ):
     qry = db.query(MemoryORM).filter(MemoryORM.owner_id == owner_id).order_by(MemoryORM.id.asc())
     if tag:
@@ -178,7 +177,7 @@ def _process_import_file(tmp_path: str, owner_id: int, job_id: uuid.UUID):
 async def import_memories(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    owner_id: int = Depends(get_current_user_id),
+    owner_id: int = Depends(get_owner_id),
     db: Session = Depends(get_db),
 ):
     suffix = os.path.splitext(file.filename or "")[1] or ".json"
@@ -197,7 +196,7 @@ async def import_memories(
     return {"job_id": str(job.id), "status": "accepted"}
 
 @router.get("/import/{job_id}")
-def import_status(job_id: uuid.UUID, db: Session = Depends(get_db), owner_id: int = Depends(get_current_user_id)):
+def import_status(job_id: uuid.UUID, db: Session = Depends(get_db), owner_id: int = Depends(get_owner_id)):
     job = db.get(ImportJobORM, job_id)
     if not job or job.owner_id != owner_id:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -212,7 +211,7 @@ def import_status(job_id: uuid.UUID, db: Session = Depends(get_db), owner_id: in
 
 # ---------- CRUD ----------
 @router.post("", response_model=MemoryOut, status_code=201)
-def create_memory(payload: MemoryCreate, db: Session = Depends(get_db), owner_id: int = Depends(get_current_user_id)):
+def create_memory(payload: MemoryCreate, db: Session = Depends(get_db), owner_id: int = Depends(get_owner_id)):
     row = MemoryORM(
         owner_id=owner_id,
         title=payload.title,
@@ -224,11 +223,11 @@ def create_memory(payload: MemoryCreate, db: Session = Depends(get_db), owner_id
     return row
 
 @router.get("/{memory_id}", response_model=MemoryOut)
-def get_memory(memory_id: int, db: Session = Depends(get_db), owner_id: int = Depends(get_current_user_id)):
+def get_memory(memory_id: int, db: Session = Depends(get_db), owner_id: int = Depends(get_owner_id)):
     return _get_owned(db, owner_id, memory_id)
 
 @router.put("/{memory_id}", response_model=MemoryOut)
-def update_memory(memory_id: int, payload: MemoryUpdate, db: Session = Depends(get_db), owner_id: int = Depends(get_current_user_id)):
+def update_memory(memory_id: int, payload: MemoryUpdate, db: Session = Depends(get_db), owner_id: int = Depends(get_owner_id)):
     row = _get_owned(db, owner_id, memory_id)
     if payload.title is not None: row.title = payload.title
     if payload.content is not None: row.content = payload.content
@@ -239,7 +238,7 @@ def update_memory(memory_id: int, payload: MemoryUpdate, db: Session = Depends(g
     return row
 
 @router.delete("/{memory_id}", status_code=204)
-def delete_memory(memory_id: int, db: Session = Depends(get_db), owner_id: int = Depends(get_current_user_id)):
+def delete_memory(memory_id: int, db: Session = Depends(get_db), owner_id: int = Depends(get_owner_id)):
     row = _get_owned(db, owner_id, memory_id)
     db.delete(row); db.commit()
     return
