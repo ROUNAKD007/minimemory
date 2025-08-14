@@ -1,16 +1,19 @@
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
 
-Base = declarative_base()
+# Load .env for local dev; on Render, env vars are already set
+load_dotenv()
+
+# Use the Base defined in models.py
+from .models import Base
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
-
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set")
 
-# Render typically supplies 'postgres://...'
-# We also force the psycopg v3 driver.
+# Normalize Postgres URL and force psycopg v3 driver
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
 elif DATABASE_URL.startswith("postgresql://") and "+psycopg" not in DATABASE_URL:
@@ -21,4 +24,13 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_recycle=300,
 )
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Dependency for FastAPI routes
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

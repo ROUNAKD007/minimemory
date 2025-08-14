@@ -1,10 +1,11 @@
 fastapi
 uvicorn[standard]
 sqlalchemy>=2.0
-psycopg[binary]              # OR psycopg2-binary, not both
+psycopg[binary]
 python-jose[cryptography]
 passlib[bcrypt]==1.7.4
-bcrypt<4.0                   # avoids the passlib warning/compat issue
+bcrypt<4.0
 python-multipart
 pydantic
 email-validator>=2.1.0.post1
+python-dotenv

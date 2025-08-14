@@ -1,14 +1,12 @@
-# minimemory/main.py
 from fastapi import FastAPI
-from .database import Base, engine
+from .database import engine
+from .models import Base
 from .routers import auth, memories, keys
 
-# Tags for the OpenAPI docs
 tags_metadata = [
-    {"name": "auth", "description": "Register & login"},
-    {"name": "memories", "description": "CRUD, search, import/export"},
-    {"name": "api-keys", "description": "Create & manage API keys"},
-    {"name": "internal", "description": "Internal/health endpoints"},
+  {"name":"auth","description":"Register & login"},
+  {"name":"memories","description":"CRUD, search, import/export"},
+  {"name":"api-keys","description":"Create & manage API keys"},
 ]
 
 app = FastAPI(
@@ -18,26 +16,20 @@ app = FastAPI(
     openapi_tags=tags_metadata,
 )
 
-# --- Health & root -----------------------------------------------------------
+# Include routers
+app.include_router(auth.router, prefix="/auth")
+app.include_router(memories.router, prefix="/memories")
+app.include_router(keys.router, prefix="/keys")
+
+# Create tables on startup (safe if tables already exist)
+@app.on_event("startup")
+def on_startup():
+    Base.metadata.create_all(bind=engine)
+
 @app.get("/health", tags=["internal"])
 def health():
     return {"ok": True}
 
-@app.get("/", tags=["internal"])
+@app.get("/", tags=["health"])
 def root():
-    return {
-        "message": "🚀 MiniMemory API is running!",
-        "docs": "/docs",
-        "health": "/health",
-    }
-
-# --- Routers -----------------------------------------------------------------
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(memories.router, prefix="/memories", tags=["memories"])
-app.include_router(keys.router, prefix="/keys", tags=["api-keys"])
-
-# --- DB init at startup ------------------------------------------------------
-@app.on_event("startup")
-def init_db():
-    # Create tables if they don't exist
-    Base.metadata.create_all(bind=engine)
+    return {"message": "🚀 MiniMemory API is running!"}
